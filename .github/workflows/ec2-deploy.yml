@@ -26,7 +26,7 @@ jobs:
           context: ./
           push: true
           dockerfile: ./Dockerfile
-          tags: fernandowi55/api-iniciacao:latest
+          tags: fernandowi55/api-recomendacao:latest
 
 
   deploy:
