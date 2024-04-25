@@ -27,6 +27,7 @@ jobs:
           push: true
           dockerfile: ./Dockerfile
           tags: fernandowi55/api-iniciacao:latest
+         
           
   deploy:
     needs: build
