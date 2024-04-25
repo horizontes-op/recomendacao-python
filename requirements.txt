@@ -1,0 +1,16 @@
+langchain
+openai
+pypdf
+tiktoken
+python-dotenv
+bs4
+html2text
+langchain_openai
+gradio
+langchain-community
+faiss-cpu
+uvicorn
+pinecone-client
+youtube-transcript-api
+fastapi
+hypercorn

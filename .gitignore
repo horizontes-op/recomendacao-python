@@ -1,0 +1,9 @@
+env_match/
+jsonOportunidades/
+env/
+.dist/
+__pycache__/
+init.ipynb
+*.zip
+.env
+testing_API.ipynb
