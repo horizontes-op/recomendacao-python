@@ -50,4 +50,4 @@ jobs:
           sudo docker pull fernandowi55/api-recomendacao:latest &&
          
           sudo docker rm -f api-recomendacao || true &&
-          sudo docker run --name api-recomendacao --restart always -d -p 5000:5000 fernandowi55/api-recomendacao:latest'
+          sudo docker run --name api-recomendacao --restart always -d -p 5000:8000 fernandowi55/api-recomendacao:latest'
