@@ -45,7 +45,7 @@ jobs:
         chmod 600 private-key.pem
     - name: Pull Docker image
       run: |
-        ssh -o StrictHostKeyChecking=no -i private-key.pem ec2-3-140-128-237.us-east-2.compute.amazonaws.com '
+        ssh -o StrictHostKeyChecking=no -i private-key.pem ubuntu@ec2-3-140-128-237.us-east-2.compute.amazonaws.com '
           sudo docker pull fernandowi55/api-recomendacao:latest &&
           sudo docker stop api-recomendacao || true &&
           sudo docker rm -f api-recomendacao || true &&
