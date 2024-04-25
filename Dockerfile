@@ -5,6 +5,8 @@ WORKDIR /app
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
+COPY .env .env  # Copia o arquivo .env.example para o contêiner e renomeia para .env
+
 COPY . .
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
