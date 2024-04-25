@@ -48,11 +48,7 @@ async def search(input: AlunoId):
     response = requests.get(url)
     # parse response to a dict
     aluno = response.json()
-    query = f'Sou de {aluno["cidade"]}-{aluno["uf"]}. Meu nome é {aluno["nome"]} {aluno["sobrenome"]}. meu genero é {aluno["genero"]}.
-    minha escolaridade é {aluno["escolaridade"]}. minha renda per capita é {aluno["renda_per_capita"]}. meu turno disponível é {aluno["turno_disponivel"]}.
-    eu estudo/estudei em {aluno["estudoEm"]}. minha disponibilidade de deslocamento em km é {aluno["disponibilidade_de_deslocamento"]}.
-    minha modalidade de ensino é {aluno["modalidade_do_ensino"]}. minhas areas de interesse são {aluno["areas_interesse"]}. tipos de oportunidades que busco são {aluno["tipo_oportunidade"]}.
-    minha descrição é {aluno["descricao"]}'
+    query = f'Sou de {aluno["cidade"]}-{aluno["uf"]}. Meu nome é {aluno["nome"]} {aluno["sobrenome"]}. meu genero é {aluno["genero"]}.minha escolaridade é {aluno["escolaridade"]}. minha renda per capita é {aluno["renda_per_capita"]}. meu turno disponível é {aluno["turno_disponivel"]}.eu estudo/estudei em {aluno["estudoEm"]}. minha disponibilidade de deslocamento em km é {aluno["disponibilidade_de_deslocamento"]}.minha modalidade de ensino é {aluno["modalidade_do_ensino"]}. minhas areas de interesse são {aluno["areas_interesse"]}. tipos de oportunidades que busco são {aluno["tipo_oportunidade"]}.minha descrição é {aluno["descricao"]}'
      
     results = new_db.similarity_search(query, 5)
     return {'text': [json.loads(x.page_content.replace("'", "\"")) for x in results]}
