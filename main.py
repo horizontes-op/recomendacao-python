@@ -44,7 +44,7 @@ async def home():
 @app.post('/search')
 async def search(input: AlunoId):
     id = input.id_aluno
-    url = f'http://18.225.57.8:8080/aluno/{id}'
+    url = f'http://3.140.128.237:8080/aluno/{id}'
     response = requests.get(url)
     # parse response to a dict
     aluno = response.json()
