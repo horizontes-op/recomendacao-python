@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlmodel import Field, Session, SQLModel, create_engine, select
-from models import Oportunidade, Recomendacao
+from models import Oportunidade, Recomendacao, Feedback
 import os
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
@@ -17,12 +17,20 @@ from unidecode import unidecode
 
 
 # ----------------- Database ----------------- #
+env_path = Path.cwd() / '.env'
+load_dotenv(dotenv_path=env_path)
+DB_USERNAME = os.getenv("DB_USERNAME")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_DATABASE = os.getenv("DB_DATABASE")
 
-sqlite_file_name = "database.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
+# ----------------- Database ----------------- #
 
-connect_args = {"check_same_thread": False}
-engine = create_engine(sqlite_url, echo=True, connect_args=connect_args)
+postgres_url = f"postgresql://{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_DATABASE}"
+
+engine = create_engine(postgres_url, echo=True)
+
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
@@ -34,8 +42,6 @@ def get_session():
 
 # ----------------- Config OpenAPI ----------------- #
 # Carregar variáveis de ambiente do arquivo .env
-env_path = Path('.') / '.env'
-load_dotenv(dotenv_path=env_path)
 
 api_key = os.getenv('OPENAI_API_KEY')
 if not api_key:
@@ -45,7 +51,7 @@ if not api_key:
 
 OPENAI_API_KEY = api_key
 embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY, model="text-embedding-3-large")
-faiss_db = FAISS.load_local("teste", embeddings, allow_dangerous_deserialization=True)
+faiss_db = FAISS.load_local("oportunidades_embeddings", embeddings, allow_dangerous_deserialization=True)
 
 # ----------------- FastAPI ----------------- #
 
@@ -72,27 +78,51 @@ class AlunoId(BaseModel):
 async def home():
     return {'hello': 'world'}
 
+# Ensure read_oportunidades_nome uses dependency injection correctly
+@app.get("/oportunidades/nome/{nome}", response_model=List[Oportunidade])
+def read_oportunidades_nome(*, session: Session = Depends(get_session), nome: str):
+    oportunidades = session.exec(select(Oportunidade).where(Oportunidade.nome == nome)).first()
+    return oportunidades
+
+
+# Update save_recomendacoes to use a session from FastAPI's dependency system
+def save_recomendacoes(results, aluno_id, session: Session):
+    for result in results:
+        # Ensure you pass a session instance here
+        oportunidade = read_oportunidades_nome(session=session, nome=result["nome"])
+        print(oportunidade)
+        if oportunidade:
+            id_opo = oportunidade.id
+            recomendacao = Recomendacao(id_usuario=aluno_id, id_oportunidade=id_opo)
+            print(recomendacao)
+            create_recomendacao(session=session, recomendacao=recomendacao)
+
 @app.post('/search')
-async def search(input: AlunoId):
+async def search(input: AlunoId, session: Session = Depends(get_session)):
     id = input.id_aluno
     url = f'http://3.140.128.237:8080/aluno/{id}'
     response = requests.get(url)
     # parse response to a dict
     aluno = response.json()
     query = f'Me encontro no nivel de escolaridade {aluno["escolaridade"]}. Tenho interesse em {aluno["areas_interesse"]}. Sobre mim: {aluno["descricao"]}'
+    match_results = None
     if aluno["disponibilidade_de_deslocamento"] == "cidade" or aluno["disponibilidade_de_deslocamento"] == "estado":
-        results = faiss_db.similarity_search_with_score(query, 100)
+        results = faiss_db.similarity_search_with_score(query, 103)
         info = [json.loads(x[0].page_content.replace("'", '"')) for x in results]
         filtered_results = filter_oportunidades(info, aluno)
         if len(filtered_results) == 0:
-            return {'text': info[:5]}
-        if len(filtered_results) > 5:
-            return {'text': filtered_results[:5]}
-        return {'text': filtered_results}
+            match_results = info[:5]
+        elif len(filtered_results) > 5:
+            match_results = filtered_results[:5]
+        else:
+            match_results = filtered_results
     else:
         results = faiss_db.similarity_search_with_score(query, 5)
         info = [json.loads(x[0].page_content.replace("'", '"')) for x in results]
-        return {'text': info}
+        match_results = info
+    save_recomendacoes(match_results, id, session)
+    return {'text': match_results}
+
 
 
 def filter_oportunidades(results, aluno):
@@ -100,9 +130,9 @@ def filter_oportunidades(results, aluno):
     al_cidade = aluno["cidade"]
     al_estado = aluno["uf"]
     if disp == "cidade":
-        results = [x for x in results if (unidecode(x['Cidade'])).lower() == unidecode(al_cidade).lower()]
+        results = [x for x in results if (unidecode(x['cidade'])).lower() == unidecode(al_cidade).lower()]
     elif disp == "estado":
-        results = [x for x in results if (unidecode(x['Estado'])).lower() == unidecode(al_estado).lower()]
+        results = [x for x in results if (unidecode(x['uf'])).lower() == unidecode(al_estado).lower()]
     return results
 
 # ----------------- Oportunidade ----------------- #
@@ -110,7 +140,12 @@ def filter_oportunidades(results, aluno):
 
 @app.post("/oportunidades/", response_model=Oportunidade)
 def create_oportunidade(*, session: Session = Depends(get_session), oportunidade: Oportunidade):
-    db_oportunidade = Oportunidade.model_validate(oportunidade)
+    dict_oportunidade = oportunidade.dict()
+    for key in dict_oportunidade:
+        if dict_oportunidade[key] != None:
+            if not isinstance(dict_oportunidade[key], str):
+                dict_oportunidade[key] = str(dict_oportunidade[key])
+    db_oportunidade = Oportunidade.model_validate(dict_oportunidade)
     session.add(db_oportunidade)
     session.commit()
     session.refresh(db_oportunidade)
@@ -124,6 +159,7 @@ def read_oportunidades(
 ):
     oportunidades = session.exec(select(Oportunidade)).all()
     return oportunidades
+
 
 
 @app.get("/oportunidades/{oportunidade_id}", response_model=Oportunidade)
@@ -164,6 +200,7 @@ def delete_oportunidade(*, session: Session = Depends(get_session), oportunidade
 
 def create_recomendacao(*, session: Session = Depends(get_session), recomendacao: Recomendacao):
     db_recomendacao = Recomendacao.model_validate(recomendacao)
+    print(db_recomendacao)
     session.add(db_recomendacao)
     session.commit()
     session.refresh(db_recomendacao)
@@ -188,3 +225,39 @@ def read_recomendacao(*, session: Session = Depends(get_session), recomendacao_i
 def read_recomendacoes_aluno(*, session: Session = Depends(get_session), aluno_id: str):
     recomendacoes = session.exec(select(Recomendacao).where(Recomendacao.id_aluno == aluno_id)).all()
     return recomendacoes
+
+# ----------------- Feedback ----------------- #
+
+@app.post("/feedback/", response_model=Feedback)
+def create_feedback(*, session: Session = Depends(get_session), feedback: Feedback):
+    db_feedback = Feedback.model_validate(feedback)
+    session.add(db_feedback)
+    session.commit()
+    session.refresh(db_feedback)
+    return db_feedback
+
+@app.get("/feedback/", response_model=List[Feedback])
+def read_feedbacks(
+    *,
+    session: Session = Depends(get_session)
+):
+    feedbacks = session.exec(select(Feedback)).all()
+    return feedbacks
+
+@app.get("/feedback/{feedback_id}", response_model=Feedback)
+def read_feedback(*, session: Session = Depends(get_session), feedback_id: int):
+    feedback = session.get(Feedback, feedback_id)
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    return feedback
+
+@app.get("/feedback/aluno/{aluno_id}", response_model=List[Feedback])
+def read_feedbacks_aluno(*, session: Session = Depends(get_session), aluno_id: str):
+    feedbacks = session.exec(select(Feedback).where(Feedback.id_aluno == aluno_id)).all()
+    return feedbacks
+
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

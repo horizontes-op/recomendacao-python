@@ -1,4 +1,4 @@
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, MetaData
 from typing import Optional
 
 class Oportunidade(SQLModel, table=True):
@@ -17,13 +17,24 @@ class Oportunidade(SQLModel, table=True):
     processo_seletivo_data: Optional[str] = None
     endereco: Optional[str] = None
     cidade: Optional[str] = None
-    estado: Optional[str] = None
+    uf: Optional[str] = None
     diferenciais: Optional[str] = None
     cursos_oferecidos: Optional[str] = None
     processo_seletivo_detalhes: Optional[str] = None
 
+    metadata = MetaData(schema="oportunidade")
+
 class Recomendacao(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    id_aluno: str
+    id_usuario: str
     id_oportunidade: int
-    score: float
+
+    metadata = MetaData(schema="recomendacao")
+
+class Feedback(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    id_usuario: str
+    qtd_estrelas: float
+    comentario: str
+
+    metadata = MetaData(schema="feedback")
