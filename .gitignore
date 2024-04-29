@@ -7,3 +7,4 @@ init.ipynb
 *.zip
 .env
 testing_API.ipynb
+env_recomendacao/
