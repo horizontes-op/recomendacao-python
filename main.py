@@ -17,7 +17,7 @@ from unidecode import unidecode
 
 
 # ----------------- Database ----------------- #
-env_path = Path.cwd() / '.env'
+env_path = Path(".") / '.env'
 load_dotenv(dotenv_path=env_path)
 DB_USERNAME = os.getenv("DB_USERNAME")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
